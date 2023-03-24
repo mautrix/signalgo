@@ -7,14 +7,120 @@ package libsignalgo
 import "C"
 import (
 	"runtime"
+	"time"
 
 	"github.com/google/uuid"
+	gopointer "github.com/mattn/go-pointer"
 )
 
 type SealedSenderAddress struct {
 	E164     string
 	UUID     uuid.UUID
 	DeviceID uint32
+}
+
+func NewSealedSenderAddress(e164 string, uuid uuid.UUID, deviceID uint32) *SealedSenderAddress {
+	return &SealedSenderAddress{
+		E164:     e164,
+		UUID:     uuid,
+		DeviceID: deviceID,
+	}
+}
+
+func SealedSenderEncryptPlaintext(message []byte, forAddress *Address, fromSenderCert *SenderCertificate, sessionStore SessionStore, identityStore IdentityKeyStore, ctx *CallbackContext) ([]byte, error) {
+	ciphertextMessage, err := Encrypt(message, forAddress, sessionStore, identityStore, ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	usmc, err := NewUnidentifiedSenderMessageContent(
+		ciphertextMessage,
+		fromSenderCert,
+		UnidentifiedSenderMessageContentHintDefault,
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return SealedSenderEncrypt(usmc, forAddress, identityStore, ctx)
+}
+
+func SealedSenderEncrypt(messageContent *UnidentifiedSenderMessageContent, forRecipient *Address, identityStore IdentityKeyStore, ctx *CallbackContext) ([]byte, error) {
+	contextPointer := gopointer.Save(ctx)
+	defer gopointer.Unref(contextPointer)
+
+	var encrypted *C.uchar
+	var length C.ulong
+	signalFfiError := C.signal_sealed_session_cipher_encrypt(
+		&encrypted,
+		&length,
+		forRecipient.ptr,
+		messageContent.ptr,
+		wrapIdentityKeyStore(identityStore),
+		contextPointer,
+	)
+	if signalFfiError != nil {
+		return nil, wrapCallbackError(signalFfiError, ctx)
+	}
+	return CopyBufferToBytes(encrypted, length), nil
+}
+
+func SealedSenderMultiRecipientEncrypt(messageContent *UnidentifiedSenderMessageContent, forRecipients []*Address, identityStore IdentityKeyStore, sessionStore SessionStore, ctx *CallbackContext) ([]byte, error) {
+	contextPointer := gopointer.Save(ctx)
+	defer gopointer.Unref(contextPointer)
+
+	panic("not implemented")
+}
+
+type SealedSenderResult struct {
+	Message []byte
+	Sender  SealedSenderAddress
+}
+
+func SealedSenderDecrypt(ciphertext []byte, localAddress *SealedSenderAddress, trustRoot *PublicKey, timestamp time.Time, sessionStore SessionStore, identityStore IdentityKeyStore, preKeyStore PreKeyStore, signedPreKeyStore SignedPreKeyStore, ctx *CallbackContext) (result SealedSenderResult, err error) {
+	contextPointer := gopointer.Save(ctx)
+	defer gopointer.Unref(contextPointer)
+
+	var decrypted *C.uchar
+	var length C.ulong
+	var senderE164 *C.char
+	var senderUUID *C.char
+	var senderDeviceID C.uint32_t
+
+	signalFfiError := C.signal_sealed_session_cipher_decrypt(
+		&decrypted,
+		&length,
+		&senderE164,
+		&senderUUID,
+		&senderDeviceID,
+		BytesToBuffer(ciphertext),
+		trustRoot.ptr,
+		C.uint64_t(timestamp.UnixMilli()),
+		C.CString(localAddress.E164),
+		C.CString(localAddress.UUID.String()),
+		C.uint32_t(localAddress.DeviceID),
+		wrapSessionStore(sessionStore),
+		wrapIdentityKeyStore(identityStore),
+		wrapPreKeyStore(preKeyStore),
+		wrapSignedPreKeyStore(signedPreKeyStore),
+		contextPointer,
+	)
+	if signalFfiError != nil {
+		err = wrapCallbackError(signalFfiError, ctx)
+		return
+	}
+
+	defer C.signal_free_string(senderE164)
+	defer C.signal_free_string(senderUUID)
+
+	return SealedSenderResult{
+		Message: CopyBufferToBytes(decrypted, length),
+		Sender: SealedSenderAddress{
+			E164:     C.GoString(senderE164),
+			UUID:     uuid.MustParse(C.GoString(senderUUID)),
+			DeviceID: uint32(senderDeviceID),
+		},
+	}, nil
 }
 
 type UnidentifiedSenderMessageContentHint uint32
