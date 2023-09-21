@@ -82,12 +82,8 @@ bridge:
     # {{.}} is replaced with the internal ID of the Signal user.
     username_template: signal_{{.}}
     # Displayname template for Signal users. This is also used as the room name in DMs if private_chat_portal_meta is enabled.
-    # Available variables:
-    #   .ID - Internal user ID
-    #   .Username - User's displayname on Signal
-    #   .Bot - Whether the user is a bot
-    #   .System - Whether the user is an official system user
-    displayname_template: '{{.Username}}{{if .Bot}} (bot){{end}}'
+    # Available variables: TODO
+    displayname_template: '{{.ProfileName}} (Signal)'
     # Whether to explicitly set the avatar and room name for private chat portal rooms.
     # If set to `default`, this will be enabled in encrypted rooms and disabled in unencrypted rooms.
     # If set to `always`, all DM rooms will have explicit names and avatars set.
@@ -112,20 +108,6 @@ bridge:
     # Whether or not created rooms should have federation enabled.
     # If false, created portal rooms will never be federated.
     federate_rooms: true
-    # Settings for converting animated stickers.
-    animated_sticker:
-        # Format to which animated stickers should be converted.
-        # disable - No conversion, send as-is (lottie JSON)
-        # png - converts to non-animated png (fastest)
-        # gif - converts to animated gif
-        # webm - converts to webm video, requires ffmpeg executable with vp9 codec and webm container support
-        # webp - converts to animated webp, requires ffmpeg executable with webp codec/container support
-        target: webp
-        # Arguments for converter. All converters take width and height.
-        args:
-            width: 320
-            height: 320
-            fps: 25 # only for webm, webp and gif (2, 5, 10, 20 or 25 recommended)
     # Servers to always allow double puppeting from
     double_puppet_server_map:
         example.com: https://example.com
