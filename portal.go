@@ -624,7 +624,7 @@ func (portal *Portal) convertMatrixMessage(ctx context.Context, sender *User, ev
 		if content.MsgType == event.MsgEmote {
 			text = "/me " + text
 		}
-		//hasPreview := portal.convertURLPreviewToWhatsApp(ctx, sender, evt, msg.ExtendedTextMessage)
+		//hasPreview := portal.convertURLPreviewToSignal(ctx, sender, evt, msg.ExtendedTextMessage)
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}

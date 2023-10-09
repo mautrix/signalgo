@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	errUserNotConnected            = errors.New("you are not connected to WhatsApp")
+	errUserNotConnected            = errors.New("you are not connected to Signal")
 	errDifferentUser               = errors.New("user is not the recipient of this private chat portal")
 	errUserNotLoggedIn             = errors.New("user is not logged in and chat has no relay bot")
 	errMNoticeDisabled             = errors.New("bridging m.notice messages is disabled")
@@ -24,7 +24,7 @@ var (
 	errMediaDownloadFailed         = errors.New("failed to download media")
 	errMediaDecryptFailed          = errors.New("failed to decrypt media")
 	errMediaConvertFailed          = errors.New("failed to convert media")
-	errMediaWhatsAppUploadFailed   = errors.New("failed to upload media to WhatsApp")
+	errMediaSignalUploadFailed     = errors.New("failed to upload media to Signal")
 	errMediaUnsupportedType        = errors.New("unsupported media type")
 	errTargetNotFound              = errors.New("target event not found")
 	errReactionDatabaseNotFound    = errors.New("reaction database entry not found")
