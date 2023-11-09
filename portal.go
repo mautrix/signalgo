@@ -1771,12 +1771,13 @@ func (br *SignalBridge) GetPortalByMXID(mxid id.RoomID) *Portal {
 	br.portalsLock.Lock()
 	defer br.portalsLock.Unlock()
 
-	portal, ok := br.portalsByMXID[mxid]
-	if !ok {
-		return br.loadPortal(br.DB.Portal.GetByMXID(mxid), nil)
+	if portal, ok := br.portalsByMXID[mxid]; ok {
+		return portal
+	} else if dbPortal := br.DB.Portal.GetByMXID(mxid); dbPortal != nil {
+		return br.loadPortal(dbPortal, nil)
+	} else {
+		return nil
 	}
-
-	return portal
 }
 
 func (br *SignalBridge) GetPortalByChatID(key database.PortalKey) *Portal {
