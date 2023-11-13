@@ -33,4 +33,11 @@ fi
 
 cd /data
 fixperms
-exec gosu $UID:$GID /usr/bin/mautrix-signal
+
+EXE=/usr/bin/mautrix-signal
+DLV=/usr/bin/dlv
+if [[ -x $DLV ]]; then
+    EXE="${DLV} exec ${EXE} --continue --accept-multiclient --api-version 2 --headless -l :4040"
+fi
+
+exec gosu $UID:$GID $EXE
