@@ -963,7 +963,14 @@ func (portal *Portal) storeReactionInDB(
 
 func (portal *Portal) addSignalQuote(content *event.MessageEventContent, quote *signalmeow.IncomingSignalMessageQuoteData) {
 	if quote != nil {
-		originalMessage := portal.bridge.DB.Message.FindBySenderAndTimestamp(quote.QuotedSender, quote.QuotedTimestamp)
+		puppet := portal.bridge.DB.Puppet.GetBySignalID(quote.QuotedSender)
+		if puppet == nil {
+			portal.log.Warn().Msgf("Couldn't find puppet for quoted sender %s", quote.QuotedSender)
+			return
+		}
+		originalMessage := portal.bridge.DB.Message.GetBySignalID(
+			puppet.SignalID, quote.QuotedTimestamp, portal.ChatID, portal.Receiver,
+		)
 		if originalMessage == nil {
 			portal.log.Warn().Msgf("Couldn't find message with Signal ID %s/%d", quote.QuotedSender, quote.QuotedTimestamp)
 			return
