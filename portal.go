@@ -1455,24 +1455,26 @@ func (portal *Portal) handleSignalReactionMessage(portalMessage portalSignalMess
 		}
 		resp, err := portal.sendMatrixReaction(intent, event.EventReaction, content, nil, 0)
 
-		// If there's an existing reaction, delete it
-		if dbReaction != nil {
-			portal.log.Debug().Msgf("Deleting existing reaction with author %s, target %s, targettime: %d", msg.SenderUUID, msg.TargetAuthorUUID, msg.TargetMessageTimestamp)
-			// Send a redaction to redact the existing reaction
-			_, err := intent.RedactEvent(portal.MXID, dbReaction.MXID)
-			if err != nil {
-				portal.log.Warn().Msgf("Failed to redact existing reaction: %v", err)
+		if err == nil && resp != nil {
+			// If there's an existing reaction, delete it
+			if dbReaction != nil {
+				portal.log.Debug().Msgf("Deleting existing reaction with author %s, target %s, targettime: %d", msg.SenderUUID, msg.TargetAuthorUUID, msg.TargetMessageTimestamp)
+				// Send a redaction to redact the existing reaction
+				_, err := intent.RedactEvent(portal.MXID, dbReaction.MXID)
+				if err != nil {
+					portal.log.Warn().Msgf("Failed to redact existing reaction: %v", err)
+				}
+				dbReaction.Delete(nil)
 			}
-			dbReaction.Delete(nil)
+			// Store our new reaction in the DB
+			portal.storeReactionInDB(
+				resp.EventID,
+				portalMessage.sender.SignalID,
+				msg.TargetAuthorUUID,
+				msg.TargetMessageTimestamp,
+				msg.Emoji, // Store without variation selector, as they come from Signal
+			)
 		}
-		// Store our new reaction in the DB
-		portal.storeReactionInDB(
-			resp.EventID,
-			portalMessage.sender.SignalID,
-			msg.TargetAuthorUUID,
-			msg.TargetMessageTimestamp,
-			msg.Emoji, // Store without variation selector, as they come from Signal
-		)
 		return false, err
 	} else {
 		if dbReaction == nil {
