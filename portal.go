@@ -1445,6 +1445,18 @@ func (portal *Portal) handleSignalReactionMessage(portalMessage portalSignalMess
 			portal.log.Warn().Msgf("Couldn't find message with Signal ID %s/%d", msg.TargetAuthorUUID, msg.TargetMessageTimestamp)
 			return false, fmt.Errorf("couldn't find message with Signal ID %s/%d", msg.TargetAuthorUUID, msg.TargetMessageTimestamp)
 		}
+		deleteExistingReaction := false
+		if dbReaction != nil {
+			// If the reaction was originally sent from Matrix, leave it alone
+			if resp, err := intent.GetEvent(portal.MXID, dbReaction.MXID); err != nil {
+				portal.log.Warn().Msgf("Failed to retrieve event for existing reaction: %v", err)
+			} else if user := portal.bridge.GetUserByMXID(resp.Sender); user != nil && user.SignalID == msg.SenderUUID {
+				portal.log.Debug().Msgf("Not replacing existing reaction with author %s, target %s, targettime: %d", msg.SenderUUID, msg.TargetAuthorUUID, msg.TargetMessageTimestamp)
+				return false, nil
+			}
+			// Otherwise, delete it later
+			deleteExistingReaction = true
+		}
 		// Create a new message event with the reaction
 		content := &event.ReactionEventContent{
 			RelatesTo: event.RelatesTo{
@@ -1456,8 +1468,7 @@ func (portal *Portal) handleSignalReactionMessage(portalMessage portalSignalMess
 		resp, err := portal.sendMatrixReaction(intent, event.EventReaction, content, nil, 0)
 
 		if err == nil && resp != nil {
-			// If there's an existing reaction, delete it
-			if dbReaction != nil {
+			if deleteExistingReaction {
 				portal.log.Debug().Msgf("Deleting existing reaction with author %s, target %s, targettime: %d", msg.SenderUUID, msg.TargetAuthorUUID, msg.TargetMessageTimestamp)
 				// Send a redaction to redact the existing reaction
 				_, err := intent.RedactEvent(portal.MXID, dbReaction.MXID)
