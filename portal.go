@@ -863,69 +863,45 @@ func (portal *Portal) handleSignalMessages(portalMessage portalSignalMessage) {
 	}
 
 	var err error
-	if portalMessage.message.MessageType() == signalmeow.IncomingSignalMessageTypeText {
+	var msgType string
+	switch portalMessage.message.MessageType() {
+	case signalmeow.IncomingSignalMessageTypeText:
+		msgType = "text"
 		err = portal.handleSignalTextMessage(portalMessage, intent)
-		if err != nil {
-			portal.log.Error().Err(err).Msg("Failed to handle text message")
-			return
-		}
-	} else if portalMessage.message.MessageType() == signalmeow.IncomingSignalMessageTypeAttachment {
+	case signalmeow.IncomingSignalMessageTypeAttachment:
+		msgType = "attachment"
 		err = portal.handleSignalAttachmentMessage(portalMessage, intent)
-		if err != nil {
-			portal.log.Error().Err(err).Msg("Failed to handle attachment message")
-			return
-		}
-	} else if portalMessage.message.MessageType() == signalmeow.IncomingSignalMessageTypeReaction {
-		err := portal.handleSignalReactionMessage(portalMessage, intent)
-		if err != nil {
-			portal.log.Error().Err(err).Msg("Failed to handle reaction message")
-			return
-		}
-	} else if portalMessage.message.MessageType() == signalmeow.IncomingSignalMessageTypeDelete {
-		err := portal.handleSignalDeleteMessage(portalMessage, intent)
-		if err != nil {
-			portal.log.Error().Err(err).Msg("Failed to handle redaction message")
-			return
-		}
-	} else if portalMessage.message.MessageType() == signalmeow.IncomingSignalMessageTypeSticker {
-		err := portal.handleSignalStickerMessage(portalMessage, intent)
-		if err != nil {
-			portal.log.Error().Err(err).Msg("Failed to handle sticker message")
-			return
-		}
-	} else if portalMessage.message.MessageType() == signalmeow.IncomingSignalMessageTypeTyping {
-		err := portal.handleSignalTypingMessage(portalMessage, intent)
-		if err != nil {
-			portal.log.Error().Err(err).Msg("Failed to handle typing message")
-			return
-		}
-	} else if portalMessage.message.MessageType() == signalmeow.IncomingSignalMessageTypeReceipt {
+	case signalmeow.IncomingSignalMessageTypeReaction:
+		msgType = "reaction"
+		err = portal.handleSignalReactionMessage(portalMessage, intent)
+	case signalmeow.IncomingSignalMessageTypeDelete:
+		msgType = "redaction"
+		err = portal.handleSignalDeleteMessage(portalMessage, intent)
+	case signalmeow.IncomingSignalMessageTypeSticker:
+		msgType = "sticker"
+		err = portal.handleSignalStickerMessage(portalMessage, intent)
+	case signalmeow.IncomingSignalMessageTypeTyping:
+		msgType = "typing"
+		err = portal.handleSignalTypingMessage(portalMessage, intent)
+	case signalmeow.IncomingSignalMessageTypeReceipt:
+		msgType = "receipt"
 		portal.log.Debug().Msg("Received receipt message")
-		err := portal.handleSignalReceiptMessage(portalMessage, intent)
-		if err != nil {
-			portal.log.Error().Err(err).Msg("Failed to handle receipt message")
-			return
-		}
-	} else if portalMessage.message.MessageType() == signalmeow.IncomingSignalMessageTypeCall {
-		err := portal.handleSignalCallMessage(portalMessage, intent)
-		if err != nil {
-			portal.log.Error().Err(err).Msg("Failed to handle call message")
-			return
-		}
-	} else if portalMessage.message.MessageType() == signalmeow.IncomingSignalMessageTypeContactCard {
-		err := portal.handleSignalContactCardMessage(portalMessage, intent)
-		if err != nil {
-			portal.log.Error().Err(err).Msg("Failed to handle contact card message")
-			return
-		}
-	} else if portalMessage.message.MessageType() == signalmeow.IncomingSignalMessageTypeUnhandled {
-		err := portal.handleSignalUnhandledMessage(portalMessage, intent)
-		if err != nil {
-			portal.log.Error().Err(err).Msg("Failed to handle unhandled message")
-			return
-		}
-	} else {
+		err = portal.handleSignalReceiptMessage(portalMessage, intent)
+	case signalmeow.IncomingSignalMessageTypeCall:
+		msgType = "call"
+		err = portal.handleSignalCallMessage(portalMessage, intent)
+	case signalmeow.IncomingSignalMessageTypeContactCard:
+		msgType = "contact card"
+		err = portal.handleSignalContactCardMessage(portalMessage, intent)
+	case signalmeow.IncomingSignalMessageTypeUnhandled:
+		msgType = "unhandled"
+		err = portal.handleSignalUnhandledMessage(portalMessage, intent)
+	default:
 		portal.log.Warn().Msgf("Unknown message type: %v", portalMessage.message.MessageType())
+		return
+	}
+	if err != nil {
+		portal.log.Error().Err(err).Msgf("Failed to handle %s message", msgType)
 		return
 	}
 }
