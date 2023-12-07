@@ -862,45 +862,45 @@ func (portal *Portal) handleSignalMessages(portalMessage portalSignalMessage) {
 		return
 	}
 
-	var err error
 	var msgTypeName string
+	var handler func(portalSignalMessage, *appservice.IntentAPI) error
 	switch msgType := portalMessage.message.MessageType(); msgType {
 	case signalmeow.IncomingSignalMessageTypeText:
 		msgTypeName = "text"
-		err = portal.handleSignalTextMessage(portalMessage, intent)
+		handler = portal.handleSignalTextMessage
 	case signalmeow.IncomingSignalMessageTypeAttachment:
 		msgTypeName = "attachment"
-		err = portal.handleSignalAttachmentMessage(portalMessage, intent)
+		handler = portal.handleSignalAttachmentMessage
 	case signalmeow.IncomingSignalMessageTypeReaction:
 		msgTypeName = "reaction"
-		err = portal.handleSignalReactionMessage(portalMessage, intent)
+		handler = portal.handleSignalReactionMessage
 	case signalmeow.IncomingSignalMessageTypeDelete:
 		msgTypeName = "redaction"
-		err = portal.handleSignalDeleteMessage(portalMessage, intent)
+		handler = portal.handleSignalDeleteMessage
 	case signalmeow.IncomingSignalMessageTypeSticker:
 		msgTypeName = "sticker"
-		err = portal.handleSignalStickerMessage(portalMessage, intent)
+		handler = portal.handleSignalStickerMessage
 	case signalmeow.IncomingSignalMessageTypeTyping:
 		msgTypeName = "typing"
-		err = portal.handleSignalTypingMessage(portalMessage, intent)
+		handler = portal.handleSignalTypingMessage
 	case signalmeow.IncomingSignalMessageTypeReceipt:
 		msgTypeName = "receipt"
 		portal.log.Debug().Msg("Received receipt message")
-		err = portal.handleSignalReceiptMessage(portalMessage, intent)
+		handler = portal.handleSignalReceiptMessage
 	case signalmeow.IncomingSignalMessageTypeCall:
 		msgTypeName = "call"
-		err = portal.handleSignalCallMessage(portalMessage, intent)
+		handler = portal.handleSignalCallMessage
 	case signalmeow.IncomingSignalMessageTypeContactCard:
 		msgTypeName = "contact card"
-		err = portal.handleSignalContactCardMessage(portalMessage, intent)
+		handler = portal.handleSignalContactCardMessage
 	case signalmeow.IncomingSignalMessageTypeUnhandled:
 		msgTypeName = "unhandled"
-		err = portal.handleSignalUnhandledMessage(portalMessage, intent)
+		handler = portal.handleSignalUnhandledMessage
 	default:
 		portal.log.Warn().Msgf("Unknown message type: %v", msgType)
 		return
 	}
-	if err != nil {
+	if err := handler(portalMessage, intent); err != nil {
 		portal.log.Error().Err(err).Msgf("Failed to handle %s message", msgTypeName)
 		return
 	}
