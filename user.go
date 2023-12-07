@@ -599,6 +599,7 @@ func ensureGroupPuppetsAreJoinedToPortal(ctx context.Context, user *User, portal
 func (user *User) incomingMessageHandler(incomingMessage signalmeow.IncomingSignalMessage) error {
 	// Handle things common to all message types
 	m := incomingMessage.Base()
+	msgType := incomingMessage.MessageType()
 	var chatID string
 	var senderPuppet *Puppet
 
@@ -632,7 +633,7 @@ func (user *User) incomingMessageHandler(incomingMessage signalmeow.IncomingSign
 		// If this is a contact change, it might have a new contact avatar, and if it does
 		// we'll need to pull it out there, since we can't get it any other time
 		var newAvatar *signalmeow.ContactAvatar
-		if incomingMessage.MessageType() == signalmeow.IncomingSignalMessageTypeContactChange {
+		if msgType == signalmeow.IncomingSignalMessageTypeContactChange {
 			contactChangeMessage := incomingMessage.(signalmeow.IncomingSignalMessageContactChange)
 			newAvatar = contactChangeMessage.Avatar
 		}
@@ -647,7 +648,7 @@ func (user *User) incomingMessageHandler(incomingMessage signalmeow.IncomingSign
 	}
 
 	// If this is a receipt, the chatID/portal is the room where the message was read
-	if incomingMessage.MessageType() == signalmeow.IncomingSignalMessageTypeReceipt {
+	if msgType == signalmeow.IncomingSignalMessageTypeReceipt {
 		receiptMessage := incomingMessage.(signalmeow.IncomingSignalMessageReceipt)
 		timestamp := receiptMessage.OriginalTimestamp
 		sender := receiptMessage.OriginalSender
@@ -668,7 +669,7 @@ func (user *User) incomingMessageHandler(incomingMessage signalmeow.IncomingSign
 	}
 
 	// If this is an expireTimer change, update the portal and return (only for DMs, group expireTimer changes are handled below)
-	if incomingMessage.MessageType() == signalmeow.IncomingSignalMessageTypeExpireTimerChange {
+	if msgType == signalmeow.IncomingSignalMessageTypeExpireTimerChange {
 		expireTimerMessage := incomingMessage.(signalmeow.IncomingSignalMessageExpireTimerChange)
 		portal.log.Debug().Msgf("Updating expiration time to %d (DM)", expireTimerMessage.NewExpireTimer)
 		if portal.ExpirationTime != int(expireTimerMessage.NewExpireTimer) {
@@ -684,7 +685,7 @@ func (user *User) incomingMessageHandler(incomingMessage signalmeow.IncomingSign
 
 	// Don't bother with portal updates for receipts or typing notifications
 	// (esp. read receipts - they don't have GroupID set so it breaks)
-	if !(incomingMessage.MessageType() == signalmeow.IncomingSignalMessageTypeReceipt || incomingMessage.MessageType() == signalmeow.IncomingSignalMessageTypeTyping) {
+	if !(msgType == signalmeow.IncomingSignalMessageTypeReceipt || msgType == signalmeow.IncomingSignalMessageTypeTyping) {
 		updatePortal := false
 		if m.GroupID != nil {
 			group, avatarImage, err := signalmeow.RetrieveGroupAndAvatarByID(context.Background(), user.SignalDevice, *m.GroupID)
@@ -749,8 +750,7 @@ func (user *User) incomingMessageHandler(incomingMessage signalmeow.IncomingSign
 			}
 			portal.UpdateBridgeInfo()
 		}
-		if incomingMessage.MessageType() == signalmeow.IncomingSignalMessageTypeGroupChange ||
-			incomingMessage.MessageType() == signalmeow.IncomingSignalMessageTypeContactChange {
+		if msgType == signalmeow.IncomingSignalMessageTypeGroupChange || msgType == signalmeow.IncomingSignalMessageTypeContactChange {
 			// This was just a group or contact change message, and we changed the group, so we're done
 			return nil
 		}
