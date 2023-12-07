@@ -885,7 +885,6 @@ func (portal *Portal) handleSignalMessages(portalMessage portalSignalMessage) {
 		handler = portal.handleSignalTypingMessage
 	case signalmeow.IncomingSignalMessageTypeReceipt:
 		msgTypeName = "receipt"
-		portal.log.Debug().Msg("Received receipt message")
 		handler = portal.handleSignalReceiptMessage
 	case signalmeow.IncomingSignalMessageTypeCall:
 		msgTypeName = "call"
@@ -900,6 +899,7 @@ func (portal *Portal) handleSignalMessages(portalMessage portalSignalMessage) {
 		portal.log.Warn().Msgf("Unknown message type: %v", msgType)
 		return
 	}
+	portal.log.Debug().Msgf("Received %s message", msgTypeName)
 	if err := handler(portalMessage, intent); err != nil {
 		portal.log.Error().Err(err).Msgf("Failed to handle %s message", msgTypeName)
 		return
