@@ -863,45 +863,45 @@ func (portal *Portal) handleSignalMessages(portalMessage portalSignalMessage) {
 	}
 
 	var err error
-	var msgType string
-	switch portalMessage.message.MessageType() {
+	var msgTypeName string
+	switch msgType := portalMessage.message.MessageType(); msgType {
 	case signalmeow.IncomingSignalMessageTypeText:
-		msgType = "text"
+		msgTypeName = "text"
 		err = portal.handleSignalTextMessage(portalMessage, intent)
 	case signalmeow.IncomingSignalMessageTypeAttachment:
-		msgType = "attachment"
+		msgTypeName = "attachment"
 		err = portal.handleSignalAttachmentMessage(portalMessage, intent)
 	case signalmeow.IncomingSignalMessageTypeReaction:
-		msgType = "reaction"
+		msgTypeName = "reaction"
 		err = portal.handleSignalReactionMessage(portalMessage, intent)
 	case signalmeow.IncomingSignalMessageTypeDelete:
-		msgType = "redaction"
+		msgTypeName = "redaction"
 		err = portal.handleSignalDeleteMessage(portalMessage, intent)
 	case signalmeow.IncomingSignalMessageTypeSticker:
-		msgType = "sticker"
+		msgTypeName = "sticker"
 		err = portal.handleSignalStickerMessage(portalMessage, intent)
 	case signalmeow.IncomingSignalMessageTypeTyping:
-		msgType = "typing"
+		msgTypeName = "typing"
 		err = portal.handleSignalTypingMessage(portalMessage, intent)
 	case signalmeow.IncomingSignalMessageTypeReceipt:
-		msgType = "receipt"
+		msgTypeName = "receipt"
 		portal.log.Debug().Msg("Received receipt message")
 		err = portal.handleSignalReceiptMessage(portalMessage, intent)
 	case signalmeow.IncomingSignalMessageTypeCall:
-		msgType = "call"
+		msgTypeName = "call"
 		err = portal.handleSignalCallMessage(portalMessage, intent)
 	case signalmeow.IncomingSignalMessageTypeContactCard:
-		msgType = "contact card"
+		msgTypeName = "contact card"
 		err = portal.handleSignalContactCardMessage(portalMessage, intent)
 	case signalmeow.IncomingSignalMessageTypeUnhandled:
-		msgType = "unhandled"
+		msgTypeName = "unhandled"
 		err = portal.handleSignalUnhandledMessage(portalMessage, intent)
 	default:
-		portal.log.Warn().Msgf("Unknown message type: %v", portalMessage.message.MessageType())
+		portal.log.Warn().Msgf("Unknown message type: %v", msgType)
 		return
 	}
 	if err != nil {
-		portal.log.Error().Err(err).Msgf("Failed to handle %s message", msgType)
+		portal.log.Error().Err(err).Msgf("Failed to handle %s message", msgTypeName)
 		return
 	}
 }
