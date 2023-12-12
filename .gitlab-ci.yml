@@ -5,6 +5,7 @@ include:
 
 variables:
   BUILDER_IMAGE: dock.mau.dev/tulir/gomuks-build-docker/signal
+  BINARY_NAME: mautrix-signal
 
 build arm:
   rules:
