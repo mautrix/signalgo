@@ -1,7 +1,7 @@
 include:
 #- project: 'mautrix/ci'
 #  file: '/go.yml'
-- file: "go-test.yml"
+- "go-test.yml"
 
 variables:
   BUILDER_IMAGE: dock.mau.dev/tulir/gomuks-build-docker/signal
