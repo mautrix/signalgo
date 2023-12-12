@@ -1,0 +1,139 @@
+stages:
+- build
+- build docker
+- manifest
+
+variables:
+  BUILDER_IMAGE: dock.mau.dev/tulir/gomuks-build-docker
+
+.build: &build
+  stage: build
+  cache:
+    paths:
+    - .cache
+  before_script:
+  - mkdir -p .cache
+  - export GOPATH="$CI_PROJECT_DIR/.cache"
+  - export GOCACHE="$CI_PROJECT_DIR/.cache/build"
+  - export MAUTRIX_VERSION=$(cat go.mod | grep 'maunium.net/go/mautrix ' | awk '{ print $2 }')
+  - export GO_LDFLAGS="-s -w -linkmode external -extldflags -static -X main.Tag=$CI_COMMIT_TAG -X main.Commit=$CI_COMMIT_SHA -X 'main.BuildTime=`date '+%b %_d %Y, %H:%M:%S'`' -X 'maunium.net/go/mautrix.GoModVersion=$MAUTRIX_VERSION'"
+  - export CGO_CFLAGS="-D_LARGEFILE64_SOURCE"
+  script:
+  - go build -ldflags "$GO_LDFLAGS" -o mautrix-$CI_PROJECT_NAME
+  - sha256sum mautrix-$CI_PROJECT_NAME | tee mautrix-$CI_PROJECT_NAME.sha256sum
+  artifacts:
+    paths:
+    - mautrix-*
+    - example-config.yaml
+
+.build-docker: &build-docker
+  image: docker:stable
+  stage: build docker
+  before_script:
+  - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+  - docker pull $CI_REGISTRY_IMAGE:latest || true
+  - docker build --pull --cache-from $CI_REGISTRY_IMAGE:latest --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA-$DOCKER_ARCH . --file Dockerfile.ci
+  - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA-$DOCKER_ARCH
+  after_script:
+  - docker rmi $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA-$DOCKER_ARCH
+
+.build-macos: &build-macos
+  stage: build
+  variables:
+    MACOSX_DEPLOYMENT_TARGET: "11.0"
+  before_script:
+  - export PATH=/opt/homebrew/bin:$PATH
+  - export MAUTRIX_VERSION=$(cat go.mod | grep 'maunium.net/go/mautrix ' | awk '{ print $2 }')
+  - export GO_LDFLAGS="-X main.Tag=$CI_COMMIT_TAG -X main.Commit=$CI_COMMIT_SHA -X 'main.BuildTime=`date '+%b %_d %Y, %H:%M:%S'`' -X 'maunium.net/go/mautrix.GoModVersion=$MAUTRIX_VERSION'"
+  - export LIBRARY_PATH=$(brew --prefix)/lib
+  - export CPATH=$(brew --prefix)/include
+  script:
+  - go build -ldflags "$GO_LDFLAGS" -o mautrix-$CI_PROJECT_NAME
+  - install_name_tool -change $(brew --prefix)/opt/libolm/lib/libolm.3.dylib @rpath/libolm.3.dylib mautrix-$CI_PROJECT_NAME
+  - install_name_tool -add_rpath @executable_path mautrix-$CI_PROJECT_NAME
+  - install_name_tool -add_rpath /opt/homebrew/opt/libolm/lib mautrix-$CI_PROJECT_NAME
+  - install_name_tool -add_rpath /usr/local/opt/libolm/lib mautrix-$CI_PROJECT_NAME
+  - cp $(brew --prefix)/opt/libolm/lib/libolm.3.dylib .
+  artifacts:
+    paths:
+    - mautrix-*
+    - example-config.yaml
+    - libolm.3.dylib
+
+build amd64:
+  <<: *build
+  image: $BUILDER_IMAGE:linux-amd64
+  tags:
+  - linux
+  - amd64
+
+build arm64:
+  <<: *build
+  image: $BUILDER_IMAGE:linux-arm64-native
+  tags:
+  - linux
+  - arm64
+
+build arm:
+  <<: *build
+  image: dock.mau.dev/tulir/gomuks-build-docker:linux-arm
+  tags:
+  - linux
+  - amd64
+
+build macos arm64:
+  <<: *build-macos
+  tags:
+  - macos
+  - arm64
+
+build docker amd64:
+  <<: *build-docker
+  tags:
+  - linux
+  - amd64
+  dependencies:
+  - build amd64
+  needs:
+  - build amd64
+  variables:
+    DOCKER_ARCH: amd64
+  after_script:
+  - wget "$BEEPER_CD_TOOL_URL" -O bridge-cd-tool && chmod +x bridge-cd-tool && ./bridge-cd-tool
+  - docker rmi $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA-$DOCKER_ARCH
+
+build docker arm64:
+  <<: *build-docker
+  tags:
+  - linux
+  - arm64
+  dependencies:
+  - build arm64
+  needs:
+  - build arm64
+  variables:
+    DOCKER_ARCH: arm64
+
+manifest:
+  stage: manifest
+  variables:
+    GIT_STRATEGY: none
+  before_script:
+  - "mkdir -p $HOME/.docker && echo '{\"experimental\": \"enabled\"}' > $HOME/.docker/config.json"
+  - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  needs:
+  - build docker amd64
+  - build docker arm64
+  script:
+  - docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA-amd64
+  - docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA-arm64
+  - |
+    if [[ "$CI_COMMIT_BRANCH" == "master" || "$CI_COMMIT_BRANCH" == "main" ]]; then
+      export MANIFEST_NAME="$CI_REGISTRY_IMAGE:latest"
+    else
+      export MANIFEST_NAME="$CI_REGISTRY_IMAGE:${CI_COMMIT_REF_NAME//\//_}"
+    fi
+    docker manifest create $MANIFEST_NAME $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA-amd64 $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA-arm64
+    docker manifest push $MANIFEST_NAME
+  - docker rmi $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA-amd64 $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA-arm64
